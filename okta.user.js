@@ -5,6 +5,7 @@
 // @require     http://code.jquery.com/jquery.min.js
 // @require     https://github.com/downloads/harthur/brain/brain-0.6.0.js
 // @require     https://github.com/downloads/harthur/hog-descriptor/hog-0.3.0.js
+// @require     https://raw.github.com/odyniec/imgareaselect/master/jquery.imgareaselect.dev.js
 // @version     1
 // @grant       all
 // ==/UserScript==
@@ -18,6 +19,8 @@ $(function(){
     var video = document.querySelector("#video");
     var canvas = document.querySelector("#canvas");
     var context = canvas.getContext('2d');
+    var training_data = [];
+    var net = new brain.NeuralNetwork();
     navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.oGetUserMedia;
     if (navigator.getUserMedia) {
         navigator.getUserMedia({video: true}, handleVideo, videoError);
@@ -72,6 +75,48 @@ $(function(){
             }
         }
         context.putImageData(pixels, 0, 0);
+    });
+    $('#canvas').imgAreaSelect({
+        handles: true,
+        show: true,
+        autohide: true,
+        onSelectEnd: function(img, sel){
+            console.log(img, sel);
+            $('body').append('<br>');
+            $('<canvas style="border:1px solid;">').each(function(){
+                console.log(this);
+                this.width = 8; //sel.x2 - sel.x1;
+                this.height = 8; //sel.y2 - sel.y1;
+                var ctx = this.getContext('2d');
+                //var src = context.getImageData(sel.x1, sel.y1, sel.x2, sel.y2);
+                //ctx.putImageData(src, 0, 0);
+                ctx.drawImage(canvas, sel.x1, sel.y1, sel.x2-sel.x1, sel.y2-sel.y1, 0, 0, this.width, this.height);
+
+                if(training_data.length > 0){
+                    var descriptor = hog.extractHOG(this);
+                    var output = net.run(descriptor);
+                    var guess = 0, max = 0;
+                    for(var i = 0; i < output.length; i++){
+                        if(output[i] > max){
+                            max = output[i];
+                            guess = i;
+                        }
+                    }
+                    console.log('guess', guess, 'output', output);
+                    //$(this).next().val(output[0]);
+                };
+            }).click(function(){
+                var label = $(this).next().val();
+                //hog.drawMagnitude(this);
+                var descriptor = hog.extractHOG(this);
+                var output = [0,0,0,0,0,0,0,0,0,0];
+                output[Number(label)] = 1;
+                console.log('training', label, 'descriptor length', descriptor.length);
+                training_data.push({'input': descriptor, 'output': output});
+                console.log('done', net.train(training_data));
+            }).appendTo('body');
+            $('body').append('<input type="text">');
+        }
     });
 });
 
