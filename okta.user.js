@@ -250,27 +250,30 @@ $(function(){
             context.stroke();
 
             // realtime ocr
-            var input = '';
-            var min_confidence = 1;
-            for(i = 0; i < 6; i++){
-                var dcanvas = $('#digit' + i)[0];
-                var guess = ocr(dcanvas);
-                input += guess.guess;
-                min_confidence = Math.min(guess.max, min_confidence);
-            }
-            if(min_confidence > max_confidence){
-                $('#oktaSoftTokenAttempt\\.passcode').val(input);
-                console.log(input, min_confidence);
-                max_confidence = min_confidence;
-            }
-            if(max_confidence > 0.85){
-                // submit form!
-                $('#oktaSoftTokenAttempt\\.passcode').css('border', 'red 1px solid');
+            if(training_data.length > 0){
+                var input = '';
+                var min_confidence = 1;
+                for(i = 0; i < 6; i++){
+                    var dcanvas = $('#digit' + i)[0];
+                    var guess = ocr(dcanvas);
+                    input += guess.guess;
+                    min_confidence = Math.min(guess.max, min_confidence);
+                }
+                if(min_confidence > max_confidence){
+                    $('#oktaSoftTokenAttempt\\.passcode').val(input);
+                    console.log(input, min_confidence);
+                    max_confidence = min_confidence;
+                }
+                if(max_confidence > 0.85){
+                    // submit form!
+                    //$('#oktaSoftTokenAttempt\\.passcode').css('border', 'red 1px solid');
+                    //console.log('submit');
+                }
             }
         }
         else{ // !valid
             max_confidence = 0; // reset max_confidence
-            $('#oktaSoftTokenAttempt\\.passcode').css('border', '');
+            //$('#oktaSoftTokenAttempt\\.passcode').css('border', '');
         }
     }
 
