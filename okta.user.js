@@ -83,14 +83,13 @@ $(function(){
         this.height = canvas.height / 4;
     });
 
-    $('#binary').after('<button id="clear">clear</button>');
-    $('#binary').after('<button id="save">save</button>');
-    $('#binary').after('<button id="test">test</button>');
-    $('#binary').after('<button id="train">train</button>');
+    $('#verify_factor').after('<button id="clear">clear</button>');
+    $('#verify_factor').after('<button id="save">save</button>');
+    $('#verify_factor').after('<button id="test">test</button>');
+    $('#verify_factor').after('<button id="train">train</button>');
 
     for(i = 5; i >= 0; i--){
         var id = 'digit' + i;
-        //$('#binary').after('<canvas id="{}">'.replace('{}', id));
         $('#oktaSoftTokenAttempt\\.answer\\.label').after('<canvas id="{}">'.replace('{}', id));
         $('#' + id).css({
             'float':'left',
@@ -264,10 +263,11 @@ $(function(){
                     console.log(input, min_confidence);
                     max_confidence = min_confidence;
                 }
-                if(max_confidence > 0.85){
+                if(max_confidence > 0.80){
                     // submit form!
                     //$('#oktaSoftTokenAttempt\\.passcode').css('border', 'red 1px solid');
                     //console.log('submit');
+                    $('#verify_factor').click();
                 }
             }
         }
@@ -291,7 +291,7 @@ $(function(){
             output[Number(input[i])] = 1;
             training_data.push({'input':feature, 'output':output});
         }
-        console.log('training', input, net.train(training_data));
+        console.log('training', input, net.train(training_data, {'log':true}));
     });
 
     $('#test').click(function(){
@@ -318,9 +318,38 @@ $(function(){
         console.log('deleted ocr traing data');
     });
 
+    function histogram(canvas){
+        var context = canvas.getContext('2d');
+        var w = canvas.width;
+        var h = canvas.height;
+        var d = context.getImageData(0, 0, w, h).data;
+        var hhist = new Array(w);
+        var vhist = new Array(h);
+        var x, y, i, j;
+
+        for(x = 0; x < w; x++)
+            hhist[x] = 0;
+        for(y = 0; y < h; y++){
+            vhist[y] = 0;
+            i = y * w * 4;
+            for(x = 0; x < w; x++){
+                j = i + x * 4;
+                if(d[j]){
+                    hhist[x]++;
+                    vhist[y]++;
+                }
+            }
+        }
+
+        return {'h':hhist, 'v':vhist};
+    }
+
     function extract_feature(canvas){
-        return hog.extractHOG(canvas);
         //return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        var feature = hog.extractHOG(canvas);
+        //var hist = histogram(canvas);
+        //feature = feature.concat(hist.h, hist.v);
+        return feature;
     }
 
     function ocr(canvas){
