@@ -298,20 +298,6 @@ $(function(){
         var canvas, feature, output, i, j, guess, max, result = '';
         for(i = 0; i < 6; i++){
             canvas = $('#digit' + i)[0];
-            /*
-            feature = extract_feature(canvas);
-            output = net.run(feature);
-            max = -1;
-            for(j = 0; j < output.length; j++){
-                if(output[j] > max){
-                    max = output[j];
-                    guess = j;
-                }
-                output[j] = Math.floor(Number(output[j] * 1000)) / 1000;
-            }
-            console.log('i', i, 'guess', guess, 'output', output);
-            result += guess;
-            */
             guess = ocr(canvas);
             console.log('guess', guess.guess, 'max', guess.max, 'output', guess.output);
             result += guess.guess
