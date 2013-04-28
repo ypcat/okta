@@ -17,6 +17,7 @@ $(function(){
     var training_data = [];
     var max_confidence = 0;
 
+    // load saved training data from local storage
     if(localStorage.ocr){
         try{
             net.fromJSON(JSON.parse(localStorage.ocr));
@@ -41,6 +42,7 @@ $(function(){
     // check remember device checkbox
     //$('#oktaSoftTokenAttempt\\.rememberDevice').attr('checked', true);
 
+    // create video tag to interface with camera
     $('body').append('<video id="camera" width="320" height="240" style="display:none;">');
 
     // connect camera to hidden video tag
@@ -73,6 +75,7 @@ $(function(){
         this.height = video.height;
     });
 
+    // smaller canvas for detection window
     $('#canvas').after('<canvas id="binary">');
     $('#binary').css({
         'float':'left',
@@ -83,11 +86,13 @@ $(function(){
         this.height = canvas.height / 4;
     });
 
+    // buttons
     $('#verify_factor').after('<button id="clear">clear</button>');
     $('#verify_factor').after('<button id="save">save</button>');
     $('#verify_factor').after('<button id="test">test</button>');
     $('#verify_factor').after('<button id="train">train</button>');
 
+    // 6 tiny canvas to hold detected digits
     for(i = 5; i >= 0; i--){
         var id = 'digit' + i;
         $('#oktaSoftTokenAttempt\\.answer\\.label').after('<canvas id="{}">'.replace('{}', id));
@@ -103,11 +108,13 @@ $(function(){
         });
     }
 
+    // per frame updating function
     function render(){
         var canvas = $('#canvas')[0];
         var context = canvas.getContext('2d');
         var video = $('#camera')[0];
 
+        // copy camera frame from video to canvas so lines can be drawn on
         try{
             context.drawImage(video, 0, 0, video.width, video.height);
         }
@@ -121,6 +128,8 @@ $(function(){
         var subcanvas = $('#binary')[0];
         var subcontext = subcanvas.getContext('2d');
         subcontext.drawImage(canvas, canvas.width/4, canvas.height*3/8, canvas.width/2, canvas.height/4, 0, 0, subcanvas.width, subcanvas.height);
+
+        // remaining detection
         process(subcanvas);
 
         // flip horizontally
@@ -266,7 +275,7 @@ $(function(){
                 if(max_confidence > 0.80){
                     // submit form!
                     //$('#oktaSoftTokenAttempt\\.passcode').css('border', 'red 1px solid');
-                    //console.log('submit');
+                    console.log('fire!');
                     $('#verify_factor').click();
                 }
             }
@@ -352,6 +361,7 @@ $(function(){
         return feature;
     }
 
+    // recognize a single digit
     function ocr(canvas){
         var feature = extract_feature(canvas);
         var output = net.run(feature);
