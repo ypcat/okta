@@ -11,6 +11,8 @@
 // ==/UserScript==
 
 $(function(){
+    "use strict";
+
     var getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.oGetUserMedia;
     var requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame;
     var net = new brain.NeuralNetwork();
@@ -92,8 +94,10 @@ $(function(){
     $('#verify_factor').after('<button id="test">test</button>');
     $('#verify_factor').after('<button id="train">train</button>');
 
+    $('#oktaSoftTokenAttempt\\.answer\\.label').after('<div id="confidence">');
+
     // 6 tiny canvas to hold detected digits
-    for(i = 5; i >= 0; i--){
+    for(var i = 5; i >= 0; i--){
         var id = 'digit' + i;
         $('#oktaSoftTokenAttempt\\.answer\\.label').after('<canvas id="{}">'.replace('{}', id));
         $('#' + id).css({
@@ -182,10 +186,15 @@ $(function(){
         th = (255 + th) / 2;
 
         // binarize
+        var obj = [];
         for(i = 0; i < n; i += 4){
             d[i] = d[i + 1] = d[i + 2] = d[i] > th? 255: 0;
             d[i + 3] = 255;
+            if(d[i] > th) obj.push(i);
         }
+
+        // connected component
+        connected_component(obj, pixels);
 
         context.putImageData(pixels, 0, 0);
 
@@ -268,20 +277,22 @@ $(function(){
                     min_confidence = Math.min(guess.max, min_confidence);
                 }
                 if(min_confidence > max_confidence){
-                    $('#oktaSoftTokenAttempt\\.passcode').val(input);
-                    console.log(input, min_confidence);
                     max_confidence = min_confidence;
+                    console.log(input, max_confidence);
+                    $('#confidence').text(Math.floor(Number(max_confidence) * 1000) / 1000);
+                    $('#oktaSoftTokenAttempt\\.passcode').val(input);
                 }
-                if(max_confidence > 0.80){
+                if(max_confidence > 0.75){
                     // submit form!
                     //$('#oktaSoftTokenAttempt\\.passcode').css('border', 'red 1px solid');
                     console.log('fire!');
-                    $('#verify_factor').click();
+                    $('#verify_factor:not(.fired)').addClass('fired').click();
                 }
             }
         }
         else{ // !valid
             max_confidence = 0; // reset max_confidence
+            $('#verify_factor').removeClass('fired');
             //$('#oktaSoftTokenAttempt\\.passcode').css('border', '');
         }
     }
@@ -379,6 +390,111 @@ $(function(){
             'max': max,
             'output': output,
         };
+    }
+
+    var label = new Array();
+    var label_parent = new Array();
+    var q = new Array();
+    var label_map = new Array();
+    function connected_component(obj, pixels){
+        var w = pixels.width;
+        var h = pixels.height;
+        var d = pixels.data;
+        var i, j, n = obj.length;
+        //var label = new Array(w * h);
+        //var label_map;
+        //var label_parent = new Array();
+        var last_label = 0;
+        var min = Math.min;
+        var l, u, lj, lu, r, s, t;
+        var m = 0;
+
+        for(i = 0; i < n; i++){
+            j = obj[i];
+            l = j - 4; // XXX may wrap to right of last line
+            u = j - w * 4;
+            if(d[l]){
+                label[j] = label[l];
+                lj = label[j]; // this label
+                lu = label[u]; // up label
+                if(d[u] && lj != lu){
+                    // set union
+                    for(t = lj; t != label_parent[t]; t = label_parent[t]){}
+                    r = t;
+                    for(t = lu; t != label_parent[t]; t = label_parent[t]){}
+                    r = min(r, t)
+                    for(t = lj; t != label_parent[t]; t = s){
+                        s = label_parent[t];
+                        label_parent[t] = r;
+                    }
+                    label_parent[t] = r;
+                    for(t = lu; t != label_parent[t]; t = s){
+                        s = label_parent[t];
+                        label_parent[t] = r;
+                    }
+                    label_parent[t] = r;
+                }
+            }
+            else if(d[u]){
+                label[j] = label[u];
+            }
+            else{
+                label[j] = label_parent[last_label] = last_label++;
+            }
+        }
+
+        //label_map = new Array(last_label);
+        for(i = 0; i < last_label; i++){
+            for(t = i; t != label_parent[t]; t = label_parent[t]){}
+            label_map[i] = t;
+        }
+
+        // remapping, e.g. [0, 1, 1, 4, 5, 5] to [0, 1, 1, 2, 3, 3]
+        //var q = new Array(last_label), m = 0;
+        for(i = 0; i < last_label; i++){
+            q[i] = 0;
+        }
+        for(i = 0; i < last_label; i++){
+            q[label_map[i]] = 1;
+        }
+        for(i = 0; i < last_label; i++){
+            q[i] = m += q[i] || 0;
+        }
+        for(i = 0; i < last_label; i++){
+            label_map[i] = q[label_map[i]];
+        }
+
+        // remove region touching edge
+        for(i = 0; i < h; i++){
+            j = i * 4 * w;
+            label_map[label[j]] = 0;
+            j += (w - 1) * 4;
+            label_map[label[j]] = 0;
+        }
+        for(i = 0; i < w; i++){
+            j = i * 4;
+            label_map[label[j]] = 0;
+            j += (h - 1) * w * 4;
+            label_map[label[j]] = 0;
+        }
+
+        // apply label mapping
+        for(i = 0; i < n; i++){
+            j = obj[i];
+            label[j] = label_map[label[j]];
+        }
+
+        // map each label to a random color
+        for(i = 0; i < n; i++){
+            j = obj[i], lj = label[j];
+            d[j + 0] = (lj * 11213) % 256;
+            d[j + 1] = (lj * 19391) % 256;
+            d[j + 2] = (lj * 19937) % 256;
+        }
+
+        if(Math.random() < 0.05){
+            console.log('labels', m, label_map);
+        }
     }
 });
 
