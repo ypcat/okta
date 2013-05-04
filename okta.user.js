@@ -18,6 +18,7 @@ $(function(){
     var net = new brain.NeuralNetwork();
     var training_data = [];
     var max_confidence = 0;
+    var fired = 0;
 
     // load saved training data from local storage
     if(localStorage.ocr){
@@ -282,18 +283,20 @@ $(function(){
                     $('#confidence').text(Math.floor(Number(max_confidence) * 1000) / 1000);
                     $('#oktaSoftTokenAttempt\\.passcode').val(input);
                 }
-                if(max_confidence > 0.75){
+                if(max_confidence > 0.70 && ! fired){
                     // submit form!
-                    //$('#oktaSoftTokenAttempt\\.passcode').css('border', 'red 1px solid');
+                    fired = 1;
                     console.log('fire!');
-                    $('#verify_factor:not(.fired)').addClass('fired').click();
+                    $('#verify_factor').click();
+                    $('#container').css('background', 'LawnGreen');
                 }
             }
         }
         else{ // !valid
             max_confidence = 0; // reset max_confidence
             $('#verify_factor').removeClass('fired');
-            //$('#oktaSoftTokenAttempt\\.passcode').css('border', '');
+            $('#container').css('background', '');
+            fired = 0;
         }
     }
 
@@ -465,17 +468,31 @@ $(function(){
         }
 
         // remove region touching edge
+        for(i = 0; i <= last_label; i++){
+            q[i] = 0;
+        }
         for(i = 0; i < h; i++){
-            j = i * 4 * w;
-            label_map[label[j]] = 0;
-            j += (w - 1) * 4;
-            label_map[label[j]] = 0;
+            j = i*4*w;
+            if(d[j])
+                q[label_map[label[j]]] = 1;
+            j = (i*w+w-1)*4;
+            if(d[j])
+                q[label_map[label[j]]] = 1;
         }
         for(i = 0; i < w; i++){
-            j = i * 4;
-            label_map[label[j]] = 0;
-            j += (h - 1) * w * 4;
-            label_map[label[j]] = 0;
+            j = i*4;
+            if(d[j])
+                q[label_map[label[j]]] = 1;
+            j = ((h-1)*w+i)*4;
+            if(d[j])
+                q[label_map[label[j]]] = 1;
+        }
+        for(i = 0; i <= last_label; i++){
+            if(q[i]){
+                for(j = 0; j < last_label; j++)
+                    if(label_map[j] == i)
+                        label_map[j] = 0;
+            }
         }
 
         // apply label mapping
